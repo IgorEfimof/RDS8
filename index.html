@@ -357,7 +357,7 @@
         .tag-cold { background: var(--cold-color); color: white; }
         .tag-ogneva { background: var(--special-color); color: white; }
         .tag-karnaugh { background: #ff9500; color: white; }
-        .tag-anti { background: #ff2d55; color: white; }
+        .tag-uniform { background: #4CAF50; color: white; }
         .tag-lstm { background: var(--lstm-color); color: white; }
         .frequency-bar {
             height: 5px;
@@ -489,7 +489,7 @@
                 <div class="method-btn active" data-method="cold">Холодные<span class="method-tag tag-cold">хо</span></div>
                 <div class="method-btn" data-method="ogneva">Огнева<span class="method-tag tag-ogneva">ог</span></div>
                 <div class="method-btn" data-method="karnaugh">Карнауха<span class="method-tag tag-karnaugh">ка</span></div>
-                <div class="method-btn" data-method="anti">Антипрогноз<span class="method-tag tag-anti">ан</span></div>
+                <div class="method-btn" data-method="uniform">Равномерный<span class="method-tag tag-uniform">ур</span></div>
                 <div class="method-btn" data-method="lstm">LSTM<span class="method-tag tag-lstm">AI</span></div>
             </div>
             
@@ -655,7 +655,7 @@
         cold: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
         ogneva: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
         karnaugh: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
-        anti: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
+        uniform: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
         lstm: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 }
     }));
     
@@ -779,7 +779,7 @@
                     case 'cold': tagClass = 'tag-cold'; tagText = 'хо'; break;
                     case 'ogneva': tagClass = 'tag-ogneva'; tagText = 'ог'; break;
                     case 'karnaugh': tagClass = 'tag-karnaugh'; tagText = 'ка'; break;
-                    case 'anti': tagClass = 'tag-anti'; tagText = 'ан'; break;
+                    case 'uniform': tagClass = 'tag-uniform'; tagText = 'ур'; break;
                     case 'lstm': tagClass = 'tag-lstm'; tagText = 'AI'; break;
                 }
                 methodTag = `<span class="method-tag ${tagClass}">${tagText}</span>`;
@@ -833,7 +833,7 @@
                 cold: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
                 ogneva: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
                 karnaugh: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
-                anti: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
+                uniform: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 },
                 lstm: { bets: 0, wins: 0, spent: 0, won: 0, balance: 0 }
             };
             saveWinStats();
@@ -1007,7 +1007,7 @@
             cold: { name: 'Холодные', class: 'tag-cold' },
             ogneva: { name: 'Огнева', class: 'tag-ogneva' },
             karnaugh: { name: 'Карнауха', class: 'tag-karnaugh' },
-            anti: { name: 'Антипрогноз', class: 'tag-anti' },
+            uniform: { name: 'Равномерный', class: 'tag-uniform' },
             lstm: { name: 'LSTM Прогноз', class: 'tag-lstm' }
         };
         
@@ -1114,8 +1114,8 @@
             case 'karnaugh': 
                 generatedNumbers = generateKarnaughNumbers(); 
                 break;
-            case 'anti': 
-                generatedNumbers = generateAntiNumbers(); 
+            case 'uniform': 
+                generatedNumbers = generateUniformNumbers(); 
                 break;
             default: 
                 generatedNumbers = generateColdNumbers();
@@ -1285,23 +1285,50 @@
         return { nums1: selected1, num2 };
     }
     
-    // Антипрогноз (исправленный)
-    function generateAntiNumbers() {
+    // Метод равномерного распределения (новый)
+    function generateUniformNumbers() {
         const countField1 = Array(20).fill(0);
         const countField2 = Array(4).fill(0);
 
         history.forEach(entry => {
-            entry.field1.forEach(n => countField1[n - 1]++);
-            countField2[entry.field2 - 1]++;
+            entry.field1.forEach(n => {
+                if (n >= 1 && n <= 20) countField1[n - 1]++;
+            });
+            if (entry.field2 >= 1 && entry.field2 <= 4) countField2[entry.field2 - 1]++;
         });
 
-        // Выбираем наименее популярные числа
-        const numbers = Array.from({ length: 20 }, (_, i) => i + 1);
-        numbers.sort((a, b) => countField1[a - 1] - countField1[b - 1]);
-        
-        const selected1 = numbers.slice(0, 8).sort((a, b) => a - b);
+        if (history.length === 0) {
+            return {
+                nums1: generateRandomNumbers(),
+                num2: Math.floor(Math.random() * 4) + 1
+            };
+        }
 
-        // Выбираем наименее популярное число для второго поля
+        // Разделяем числа на группы по частоте выпадения
+        const groups = [
+            { start: 1, end: 5 },   // Группа 1-5
+            { start: 6, end: 10 },  // Группа 6-10
+            { start: 11, end: 15 }, // Группа 11-15
+            { start: 16, end: 20 }  // Группа 16-20
+        ];
+
+        const selected1 = [];
+
+        // Выбираем по 2 числа из каждой группы
+        groups.forEach(group => {
+            const groupNumbers = [];
+            for (let i = group.start; i <= group.end; i++) {
+                groupNumbers.push(i);
+            }
+
+            // Сортируем по частоте выпадения (от наименьшей)
+            groupNumbers.sort((a, b) => countField1[a - 1] - countField1[b - 1]);
+
+            // Выбираем 2 самых редких числа в группе
+            selected1.push(groupNumbers[0], groupNumbers[1]);
+        });
+
+        // Для второго поля выбираем наименее выпадавшее число
         const minCount = Math.min(...countField2);
         const leastFrequent = [];
         countField2.forEach((count, idx) => {
@@ -1341,6 +1368,8 @@
                 div.classList.add('lstm');
             } else if(method === 'karnaugh' && nums1.indexOf(n) < 5) {
                 div.classList.add('special');
+            } else if(method === 'uniform') {
+                div.classList.add('special');
             }
             div.textContent = n;
             field1.appendChild(div);
@@ -1350,7 +1379,7 @@
         div2.className = 'number small';
         if (method === 'lstm') {
             div2.classList.add('lstm');
-        } else if(method === 'ogneva') {
+        } else if(method === 'ogneva' || method === 'uniform') {
             div2.classList.add('special');
         }
         div2.textContent = num2;
