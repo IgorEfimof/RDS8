@@ -11,6 +11,7 @@
     <!-- Загрузка TensorFlow.js -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
     <style>
+        /* Все стили остаются без изменений */
         :root {
             --bg-color: #f5f5f7;
             --text-color: #1c1c1e;
@@ -1413,9 +1414,16 @@
         try {
             const modelInfo = JSON.parse(localStorage.getItem('lstmModelInfo') || '{}');
             if (modelInfo.modelExists) {
-                lstmModel = await tf.loadLayersModel('indexeddb://rapido-lstm-model');
-                modelAccuracy.textContent = modelInfo.accuracy ? `${modelInfo.accuracy}%` : '0%';
-                trainingMessage.textContent = 'Модель загружена';
+                try {
+                    lstmModel = await tf.loadLayersModel('indexeddb://rapido-lstm-model');
+                    modelAccuracy.textContent = modelInfo.accuracy ? `${modelInfo.accuracy}%` : '0%';
+                    trainingMessage.textContent = 'Модель загружена';
+                } catch (e) {
+                    console.error('Ошибка загрузки модели:', e);
+                    createModel();
+                    localStorage.removeItem('lstmModelInfo');
+                    trainingMessage.textContent = 'Создана новая модель';
+                }
                 return;
             }
         } catch (e) {
@@ -1583,10 +1591,14 @@
         } finally {
             isTraining = false;
             trainModelBtn.disabled = false;
-            // Освобождаем память
-            if (data) {
-                data.X.dispose();
-                data.y.dispose();
+            // Гарантированное освобождение памяти
+            try {
+                if (data) {
+                    data.X.dispose();
+                    data.y.dispose();
+                }
+            } catch (e) {
+                console.error("Ошибка освобождения памяти:", e);
             }
         }
     }
@@ -1710,7 +1722,7 @@
         await initModel();
         
         // Автоматическое обучение при наличии данных
-        if (history.length >= 15) {
+        if (history.length >= 15 && lstmModel) {
             setTimeout(trainModel, 1000);
         }
     });
