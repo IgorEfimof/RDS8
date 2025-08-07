@@ -1415,11 +1415,21 @@
             const modelInfo = JSON.parse(localStorage.getItem('lstmModelInfo') || '{}');
             if (modelInfo.modelExists) {
                 try {
+                    // Загружаем модель из IndexedDB
                     lstmModel = await tf.loadLayersModel('indexeddb://rapido-lstm-model');
+                    
+                    // Явная компиляция модели после загрузки
+                    lstmModel.compile({
+                        optimizer: tf.train.adam(0.0005),
+                        loss: 'binaryCrossentropy',
+                        metrics: ['accuracy']
+                    });
+                    
                     modelAccuracy.textContent = modelInfo.accuracy ? `${modelInfo.accuracy}%` : '0%';
                     trainingMessage.textContent = 'Модель загружена';
                 } catch (e) {
                     console.error('Ошибка загрузки модели:', e);
+                    // Создаем новую модель при ошибке загрузки
                     createModel();
                     localStorage.removeItem('lstmModelInfo');
                     trainingMessage.textContent = 'Создана новая модель';
@@ -1435,7 +1445,7 @@
         trainingMessage.textContent = 'Готово к обучению';
     }
     
-    // Создание архитектуры модели (УЛУЧШЕННАЯ)
+    // Создание архитектуры модели
     function createModel() {
         lstmModel = tf.sequential();
         
@@ -1468,7 +1478,7 @@
         
         // Компиляция модели
         lstmModel.compile({
-            optimizer: tf.train.adam(0.0005), // Меньше learning rate
+            optimizer: tf.train.adam(0.0005),
             loss: 'binaryCrossentropy',
             metrics: ['accuracy']
         });
@@ -1530,7 +1540,7 @@
         };
     }
     
-    // Обучение модели (УЛУЧШЕННОЕ)
+    // Обучение модели
     async function trainModel() {
         if (isTraining || history.length < 15) return;
         
@@ -1553,8 +1563,8 @@
         try {
             // Обучение модели
             const historyInfo = await lstmModel.fit(data.X, data.y, {
-                epochs: 100, // Больше эпох
-                batchSize: 16, // Больше размер батча
+                epochs: 100,
+                batchSize: 16,
                 validationSplit: 0.2,
                 callbacks: {
                     onEpochEnd: async (epoch, logs) => {
@@ -1591,19 +1601,15 @@
         } finally {
             isTraining = false;
             trainModelBtn.disabled = false;
-            // Гарантированное освобождение памяти
-            try {
-                if (data) {
-                    data.X.dispose();
-                    data.y.dispose();
-                }
-            } catch (e) {
-                console.error("Ошибка освобождения памяти:", e);
+            // Освобождаем память
+            if (data) {
+                data.X.dispose();
+                data.y.dispose();
             }
         }
     }
     
-    // Генерация чисел с помощью LSTM (ИСПРАВЛЕННАЯ)
+    // Генерация чисел с помощью LSTM
     async function generateLSTMNumbers() {
         if (!lstmModel || history.length < 10) {
             return generateColdNumbers(); // Fallback
@@ -1646,7 +1652,7 @@
                 field1Probs.map(p => p / sum1) : 
                 Array(20).fill(1/20);
             
-            // 2. Выбираем числа с учетом вероятностей (не просто топ-8)
+            // 2. Выбираем числа с учетом вероятностей
             const nums1 = [];
             const availableNumbers = Array.from({ length: 20 }, (_, i) => i + 1);
             
@@ -1722,7 +1728,7 @@
         await initModel();
         
         // Автоматическое обучение при наличии данных
-        if (history.length >= 15 && lstmModel) {
+        if (history.length >= 15) {
             setTimeout(trainModel, 1000);
         }
     });
